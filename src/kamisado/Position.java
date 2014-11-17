@@ -63,35 +63,45 @@ public class Position {
     }
     return builder.toString();
   }
+  
+  public GameResult GetGameResult() {
+    return gameResult;
+  }
 
   // Does not handle the pass move (in fact, attempting the pass move will
   // throw).
+  // Does not check legality of move (that's handled in GenerateLegalMoves).
   public Position MakeMove(int beginRow, int beginColumn, int endRow, int endColumn)
-      throws IllegalMoveException {
+          throws IllegalMoveException {
     Position result = new Position(this);
     int currentPiece = Get(beginRow, beginColumn);
     if (currentPiece == EMPTY) {
       throw new IllegalMoveException("Moving from empty square (" + beginRow + "," + beginColumn
-          + ") in\n" + this.toString());
+              + ") in\n" + this.toString());
     }
     if (PlayerOf(currentPiece) == BLACK && playerToPlay == WHITE) {
       throw new IllegalMoveException("Moving black piece at (" + beginRow + "," + beginColumn
-          + ") when it's white to play in\n" + this.toString());
+              + ") when it's white to play in\n" + this.toString());
     }
     if (PlayerOf(currentPiece) == WHITE && playerToPlay == BLACK) {
       throw new IllegalMoveException("Moving white piece at (" + beginRow + "," + beginColumn
-          + ") when it's black to play in\n" + this.toString());
+              + ") when it's black to play in\n" + this.toString());
     }
     if (colorToPlay != ANY_COLOR && ColorOf(currentPiece) != colorToPlay) {
       throw new IllegalMoveException("Moving wrong colored piece (" + beginRow + "," + beginColumn
-          + ") in\n" + this.toString());
+              + ") in\n" + this.toString());
     }
     if (Get(endRow, endColumn) != EMPTY) {
       throw new IllegalMoveException("Moving to non-empty square (" + endRow + "," + endColumn
-          + ") in\n" + this.toString());
+              + ") in\n" + this.toString());
     }
     result.Set(endRow, endColumn, currentPiece);
     result.Set(beginRow, beginColumn, EMPTY);
+    if (playerToPlay == WHITE && endRow == dimension - 1) {
+      result.gameResult = GameResult.WHITE_WINS;
+    } else if (playerToPlay == BLACK && endRow == 0) {
+      result.gameResult = GameResult.BLACK_WINS;
+    }
     result.playerToPlay = 1 - playerToPlay;
     result.colorToPlay = ColorOf(currentPiece);
     result.forbiddenColor = NO_COLOR;
@@ -99,8 +109,10 @@ public class Position {
   }
 
   public ArrayList<Position> GenerateLegalMoves() {
-    // TODO handle the case where one side has already won.
     ArrayList<Position> result = new ArrayList<Position>();
+    if (gameResult != GameResult.ONGOING) {
+      return result;
+    }
     if (colorToPlay == ANY_COLOR) {
       // Normally happens only on first move.
       for (int color = 0; color < dimension; ++color) {
@@ -186,6 +198,10 @@ public class Position {
       passedPosition.playerToPlay = 1 - this.playerToPlay;
       passedPosition.forbiddenColor = this.colorToPlay;
       passedPosition.colorToPlay = newColor;
+      ArrayList<Position> afterPassedMoves = passedPosition.GenerateLegalMoves();
+      if (afterPassedMoves.isEmpty()) {
+        passedPosition.gameResult = GameResult.DRAW;
+      }
       result.add(passedPosition);
     }
     return result;
@@ -283,6 +299,7 @@ public class Position {
   private final Board board;
   private int[] squares;
   private int playerToPlay = WHITE;
+  private GameResult gameResult = GameResult.ONGOING;
   private int colorToPlay = ANY_COLOR;
   private int forbiddenColor = -1;  // To break mutual stalemate.
   private int cellWidth = 1;  // For display
@@ -290,8 +307,16 @@ public class Position {
   // Don't change values as algorithms depend on them.
   private static final int EMPTY = -1;
   private static final int ANY_COLOR = -1;
-  private static final int NO_COLOR = -1;  // Synonym but reads better in some
-                                          // places.
+  // Synonym but reads better in some places.
+  private static final int NO_COLOR = -1;
+  
   private static final int WHITE = 0;
   private static final int BLACK = 1;
+  
+  public enum GameResult {
+    ONGOING,
+    WHITE_WINS,
+    BLACK_WINS,
+    DRAW;
+  }
 }
